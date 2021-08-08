@@ -1,0 +1,16 @@
+
+namespace test {
+    function say-hello() {
+        /say Hello World
+    }
+
+    function call-test {
+        call say-hello
+
+        int i = 0
+        while i < 10 {
+            i++
+        }
+
+    }
+}

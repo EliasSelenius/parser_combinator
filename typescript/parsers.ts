@@ -1,7 +1,6 @@
 
 
-
-type State = {
+export type State = {
     input: string,
     index: number,
     result: any,
@@ -32,7 +31,7 @@ const updateParserResult = (state: State, res: any) : State => {
     };
 }
 
-class Parser {
+export class Parser {
     constructor (public stf: stateTransformFunc) { }
 
     public run(input: string): State {
@@ -64,7 +63,9 @@ class Parser {
 }
 
 
-const str = (txt:string) => new Parser((state:State) => {
+export const str = (txt:string) => new Parser((state:State) => {
+    if (state.isError) return state;
+
     if (state.input.slice(state.index).startsWith(txt)) {
         return updateParserState(state, state.index + txt.length, txt);
     }
@@ -72,7 +73,7 @@ const str = (txt:string) => new Parser((state:State) => {
     return updateParserError(state, 'Error');
 });
 
-const sequence = (parsers: Parser[]) => new Parser((state: State) => {
+export const sequence = (parsers: Parser[]) => new Parser((state: State) => {
     let nextState = state;
     const results = [];
 
@@ -85,50 +86,30 @@ const sequence = (parsers: Parser[]) => new Parser((state: State) => {
 });
 
 
-const lettersRegex = /^[A-Za-z]+/;
-const digitsRegex = /^[0-9]+/;
-const whitespaceRegex = /^\s+/;
 
-const letters = new Parser(state => {
+
+export const regex = (regx: RegExp) => new Parser(state => {
     if (state.isError) return state;
-
+    
     const s = state.input.slice(state.index);
-
-    const rm = s.match(lettersRegex);
+    
+    const rm = s.match(regx);
     if (rm) {
         return updateParserState(state, state.index + rm[0].length, rm[0]);
     }
-
+    
     return updateParserError(state, 'error');
 });
 
-const digits = new Parser(state => {
-    if (state.isError) return state;
 
-    const s = state.input.slice(state.index);
 
-    const rm = s.match(digitsRegex);
-    if (rm) {
-        return updateParserState(state, state.index + rm[0].length, rm[0]);
-    }
+export const letters = regex(/^[A-Za-z]+/);
+export const digits = regex(/^[0-9]+/);
+export const whitespace = regex(/^\s+/);
+export const newline = regex(/^(\r\n|\n|\r)/);
 
-    return updateParserError(state, 'error');
-});
 
-const whitespace = new Parser(state => {
-    if (state.isError) return state;
-
-    const s = state.input.slice(state.index);
-
-    const rm = s.match(whitespaceRegex);
-    if (rm) {
-        return updateParserState(state, state.index + rm[0].length, rm[0]);
-    }
-
-    return updateParserError(state, 'error');
-})
-
-const choice = (parsers: Parser[]) => new Parser(state => {
+export const choice = (parsers: Parser[]) => new Parser(state => {
     if (state.isError) return state;
 
     for (const p of parsers) {
@@ -139,7 +120,7 @@ const choice = (parsers: Parser[]) => new Parser(state => {
     return updateParserError(state, 'error');
 });
 
-const many = (parser: Parser) => new Parser(state => {
+export const many = (parser: Parser) => new Parser(state => {
     if (state.isError) return state;
 
     const res: any[] = [];
@@ -154,7 +135,7 @@ const many = (parser: Parser) => new Parser(state => {
     return updateParserResult(nextState, res);
 });
 
-const many1 = (parser: Parser) => new Parser(state => {
+export const many1 = (parser: Parser) => new Parser(state => {
     if (state.isError) return state;
 
     const res: any[] = [];
@@ -171,29 +152,12 @@ const many1 = (parser: Parser) => new Parser(state => {
     return updateParserResult(nextState, res);
 });
 
-const funcBody = sequence([
-    str('{'), whitespace, str('}')
-]);
 
-const func = sequence([
-    str('func'),
-    whitespace,
-    letters,
-    str('()'),
-    whitespace,
-    funcBody
-]).map(res => {
-    return {
-        type: 'Function',
-        name: res[2],
-        body: res[5]
-    };
-})
+export const between = (left: Parser, right: Parser) => (parser: Parser) => sequence([
+    left, parser, right
+]).map(res => res[1]);
 
-const p = many(choice([whitespace, func]));
-
-const file = await Deno.readTextFile('test.txt');
-console.log(file);
-
-
-console.log(p.run(file));
+export const inParentheses = between(str('('), str(')'));
+export const inSquareBrackets = between(str('['), str(']'));  
+export const inCurlyBrackets = between(str('{'), str('}'));
+export const inAngleBrackets = between(str('<'), str('>'));
