@@ -137,6 +137,7 @@ namespace pcombinator {
         public static readonly Parser letters = regex("^[a-zA-Z]+");
         public static readonly Parser digits = regex("^[0-9]+");
         public static readonly Parser whitespace = regex("^\\s+");
+        public static readonly Parser newline = regex("^[\\n\\r]");
 
         public static Parser many(Parser parser) => new Parser(state => {
             if (state.isError) return state;
