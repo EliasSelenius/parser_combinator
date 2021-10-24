@@ -12,6 +12,7 @@ namespace pcombinator {
 
         transformStateFunc stf;
         bool isAndUnary = false;
+        bool _ignore = false;
 
         public Parser(transformStateFunc stf) {
             init(stf);
@@ -65,35 +66,47 @@ namespace pcombinator {
 
             var nextState = state;
 
+            void addResults(Parser p) {
+                if (p.isAndUnary) {
+                    for (int i = 0; i < nextState.result.Length; i++) results.Add(nextState.result[i]);
+                } else if (!p._ignore) results.Add(nextState.result);
+            }
+
             nextState = left.stf(nextState);
             if (nextState.isError) return nextState;
-            if (left.isAndUnary) {
-                for (int i = 0; i < nextState.result.Length; i++) results.Add(nextState.result[i]);
-            } else results.Add(nextState.result);
+            addResults(left);
             
             nextState = right.stf(nextState);
             if (nextState.isError) return nextState;
-            if (right.isAndUnary) {
-                for (int i = 0; i < nextState.result.Length; i++) results.Add(nextState.result[i]);
-            } else results.Add(nextState.result);
+            addResults(right);
 
             return updateState(nextState, nextState.index, results.ToArray());
         }) {
-            isAndUnary = true
+            isAndUnary = true // signifies that this parser is the result of a 'unaray and' operation
         };
 
 
-        public static Parser operator |(Parser left, Parser right) => new Parser(state => {
-            if (state.isError) return state;
+        public static Parser operator |(Parser left, Parser right) {
+            var p = new Parser();
+            p.stf = state => {
+                if (state.isError) return state;
 
-            var s = left.stf(state);
-            if (!s.isError) return s;
+                var s = left.stf(state);
+                if (!s.isError) {
+                    p._ignore = left._ignore; // p inherits the ignore flag from the parser that parses successfully
+                    return s;
+                } 
 
-            s = right.stf(state);
-            if (!s.isError) return s;
+                s = right.stf(state);
+                if (!s.isError) {
+                    p._ignore = right._ignore;
+                    return s;
+                }
 
-            return updateError(state, "Neither left or right parser passed");
-        });
+                return updateError(state, "Neither left or right parser passed");
+            };
+            return p;
+        }
 
         public static Parser operator /(Parser value, Parser seperator) => sepby(seperator)(value);
 
@@ -111,15 +124,21 @@ namespace pcombinator {
             if (state.isError) return state;
 
             var nextState = state;
-            var results = new dynamic[parsers.Length];
+            var results = new List<dynamic>();
 
             for (int i = 0; i < parsers.Length; i++) {
                 nextState = parsers[i].stf(nextState);
-                results[i] = nextState.result;
+                if (!parsers[i]._ignore) results.Add(nextState.result);
             }
 
-            return updateState(nextState, nextState.index, results);
+            return updateState(nextState, nextState.index, results.ToArray());
         });
+
+        public static Parser ignore(Parser parser) => new Parser {
+            stf = parser.stf,
+            isAndUnary = false,
+            _ignore = true
+        };
 
         public static Parser optional(Parser parser) => new Parser(state => {
             if (state.isError) return state;
@@ -158,7 +177,7 @@ namespace pcombinator {
             while (true) {
                 var s = parser.stf(nextState);
                 if (s.isError) break;
-                results.Add(s.result);
+                if (!parser._ignore) results.Add(s.result);
                 nextState = s;
             }
 
@@ -173,7 +192,7 @@ namespace pcombinator {
             while (true) {
                 var s = parser.stf(nextState);
                 if (s.isError) break;
-                results.Add(s.result);
+                if (!parser._ignore) results.Add(s.result);
                 nextState = s;
             }
 
