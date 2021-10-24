@@ -121,6 +121,17 @@ namespace pcombinator {
             return updateState(nextState, nextState.index, results);
         });
 
+        public static Parser optional(Parser parser) => new Parser(state => {
+            if (state.isError) return state;
+
+            var nextState = state;
+            nextState = parser.stf(nextState);
+
+            if (nextState.isError) return updateState(state, state.index, null);
+
+            return nextState;
+        });
+
         public static Parser regex(string pattern) => new Parser(state => {
             if (state.isError) return state;
 
@@ -235,5 +246,9 @@ namespace pcombinator {
         public static readonly Parser colon = str(":");
         public static readonly Parser semicolon = str(";");
         
+        public static readonly Parser plus = str("+");
+        public static readonly Parser minus = str("-");
+        
+
     }
 }
