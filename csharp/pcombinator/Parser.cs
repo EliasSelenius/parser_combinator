@@ -113,11 +113,14 @@ namespace pcombinator {
         public static Parser str(string s) => new Parser(state => {    
             if (state.isError) return state;
 
-            if (state.input.Substring(state.index).StartsWith(s)) {
+            var i = state.input.Substring(state.index);
+            if (i.StartsWith(s)) {
                 return updateState(state, state.index + s.Length, s);
             }
 
-            return updateError(state, $"Did not get expected token {s}");
+            // Did not get expected token {s}
+            var len = i.Length < 10 ? i.Length : 10;
+            return updateError(state, $"Expected token is {s} but got {i.Substring(0, len)} instead");
         });
 
         public static Parser sequence(params Parser[] parsers) => new Parser(state => {
