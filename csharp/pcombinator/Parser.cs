@@ -118,10 +118,10 @@ namespace pcombinator {
                 return updateState(state, state.index + s.Length, s);
             }
 
-            // Did not get expected token {s}
-            var len = i.Length < 10 ? i.Length : 10;
-            return updateError(state, $"Expected token is {s} but got {i.Substring(0, len)} instead");
+            return updateError(state, $"Expected token is {s} but got {someOf(i)} instead");
         });
+
+        static string someOf(string s, int numChars = 10) => s.Substring(s.Length < numChars ? s.Length : numChars);
 
         public static Parser sequence(params Parser[] parsers) => new Parser(state => {
             if (state.isError) return state;
@@ -271,6 +271,16 @@ namespace pcombinator {
         public static readonly Parser plus = str("+");
         public static readonly Parser minus = str("-");
         
+
+        public static readonly Parser endOfInput = new Parser(state => {
+            if (state.isError) return state;
+            if (state.input.Length == state.index) return state;
+
+            var i = state.input.Substring(state.index);
+            return updateError(state, "Expected end of input but got: " + someOf(i));
+        }) {
+            _ignore = true
+        };
 
     }
 }
