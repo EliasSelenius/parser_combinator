@@ -121,7 +121,7 @@ namespace pcombinator {
             return updateError(state, $"Expected token is {s} but got {someOf(i)} instead");
         });
 
-        static string someOf(string s, int numChars = 10) => s.Substring(s.Length < numChars ? s.Length : numChars);
+        static string someOf(string s, int numChars = 10) => s.Substring(0, s.Length < numChars ? s.Length : numChars);
 
         public static Parser sequence(params Parser[] parsers) => new Parser(state => {
             if (state.isError) return state;
