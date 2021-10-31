@@ -5,16 +5,25 @@ using System.Collections.Generic;
 
 namespace pcombinator {
 
-    public record State(string input, int index, dynamic result, bool isError, string errorMsg);
+    public record State(string input, int index, dynamic result, bool isError, string errorMsg) {
+        public bool isEOF => input.Length == index;
+    }
+
     public delegate State transformStateFunc(State state);
 
     public class Parser {
 
+        public string parserName = "Parser";
         transformStateFunc stf;
         bool isAndUnary = false;
         bool _ignore = false;
 
         public Parser(transformStateFunc stf) {
+            init(stf);
+        }
+
+        public Parser(string name, transformStateFunc stf) {
+            parserName = name;
             init(stf);
         }
 
@@ -33,7 +42,7 @@ namespace pcombinator {
             return stf(state);
         }
 
-        public Parser map(Func<dynamic, dynamic> func) => new Parser(state => {
+        public Parser map(Func<dynamic, dynamic> func) => new Parser(this.parserName, state => {
             var nextState = this.stf(state);
             if (nextState.isError) return nextState;
             return updateState(nextState, nextState.index, func(nextState.result));
@@ -103,14 +112,14 @@ namespace pcombinator {
                     return s;
                 }
 
-                return updateError(state, "Neither left or right parser passed");
+                return updateError(state, $"Neither {left.parserName} or {right.parserName} parser passed");
             };
             return p;
         }
 
         public static Parser operator /(Parser value, Parser seperator) => sepby(seperator)(value);
 
-        public static Parser str(string s) => new Parser(state => {    
+        public static Parser str(string s) => new Parser(name:"\"" + s + "\"", stf:state => {    
             if (state.isError) return state;
 
             var i = state.input.Substring(state.index);
@@ -154,7 +163,7 @@ namespace pcombinator {
             return nextState;
         });
 
-        public static Parser regex(string pattern) => new Parser(state => {
+        public static Parser regex(string pattern) => new Parser(name: $"regx({pattern})",state => {
             if (state.isError) return state;
 
             var s = state.input.Substring(state.index);
@@ -281,6 +290,22 @@ namespace pcombinator {
         }) {
             _ignore = true
         };
+
+
+        public static Parser all(Parser parser) => new Parser(state => {
+            if (state.isError) return state;
+
+            var results = new List<dynamic>();
+            var nextState = state;
+            while (true) {
+                nextState = parser.stf(nextState);
+                if (nextState.isError) return nextState;
+
+                if (!parser._ignore) results.Add(nextState.result);
+
+                if (nextState.isEOF) return updateState(nextState, nextState.index, results.ToArray()); 
+            }
+        });
 
     }
 }
