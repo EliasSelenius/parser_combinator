@@ -7,6 +7,11 @@ namespace pcombinator {
 
     public record State(string input, int index, dynamic result, bool isError, string errorMsg) {
         public bool isEOF => input.Length == index;
+
+        public int getLineNumber() {
+            var str = input.Substring(0, index);
+            return str.Split('\n').Length;
+        }
     }
 
     public delegate State transformStateFunc(State state);
@@ -46,6 +51,12 @@ namespace pcombinator {
             var nextState = this.stf(state);
             if (nextState.isError) return nextState;
             return updateState(nextState, nextState.index, func(nextState.result));
+        });
+
+        public Parser map(Func<dynamic, int, dynamic> func) => new Parser(this.parserName, state => {
+            var nextState = this.stf(state);
+            if (nextState.isError) return nextState;
+            return updateState(nextState, nextState.index, func(nextState.result, nextState.getLineNumber()));
         });
 
         private static State updateState(State state, int index, dynamic res) => state with {
