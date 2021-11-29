@@ -5,6 +5,10 @@ using System.Collections.Generic;
 
 namespace pcombinator {
 
+    public interface IParsedNode {
+        int lineNum { get; set; }
+    }
+
     public record State(string input, int index, dynamic result, bool isError, string errorMsg) {
         public bool isEOF => input.Length == index;
 
@@ -50,13 +54,33 @@ namespace pcombinator {
         public Parser map(Func<dynamic, dynamic> func) => new Parser(this.parserName, state => {
             var nextState = this.stf(state);
             if (nextState.isError) return nextState;
-            return updateState(nextState, nextState.index, func(nextState.result));
+
+            var res = func(nextState.result);
+            if (res is IParsedNode n) n.lineNum = nextState.getLineNumber();
+
+            return updateState(nextState, nextState.index, res);
         });
 
         public Parser map(Func<dynamic, int, dynamic> func) => new Parser(this.parserName, state => {
             var nextState = this.stf(state);
             if (nextState.isError) return nextState;
-            return updateState(nextState, nextState.index, func(nextState.result, nextState.getLineNumber()));
+
+            var line = nextState.getLineNumber();
+            var res = func(nextState.result, line);
+            if (res is IParsedNode n) n.lineNum = line;
+
+            return updateState(nextState, nextState.index, res);
+        });
+
+        public Parser mapError(Func<dynamic, int, dynamic> func) => new Parser(this.parserName, state => {
+            var nextState = this.stf(state);
+            if (nextState.isError) return nextState with {
+                isError = false,
+                errorMsg = null,
+                result = func(nextState.result, nextState.getLineNumber())
+            };
+
+            return updateState(nextState, nextState.index, nextState.result);
         });
 
         private static State updateState(State state, int index, dynamic res) => state with {
